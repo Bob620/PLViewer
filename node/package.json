@@ -1,0 +1,23 @@
+{
+	"name": "plviewer",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.mjs",
+	"type": "module",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Bob620/PLViewer.git"
+	},
+	"author": "Bob620",
+	"license": "MIT",
+	"bugs": {
+		"url": "https://github.com/Bob620/PLViewer/issues"
+	},
+	"homepage": "https://github.com/Bob620/PLViewer#readme",
+	"dependencies": {
+		"sxes-compressor": "file:../sxes-compressor"
+	}
+}
