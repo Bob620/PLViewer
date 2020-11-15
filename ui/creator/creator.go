@@ -146,8 +146,12 @@ func (creator *CreatorPage) HandleEvents(key *tcell.EventKey, switchToPage func(
 			}
 			break
 		case tcell.KeyUp:
-			focusHeader(true)
-			creator.Deselect()
+			if creator.inputField.IsActive() {
+				creator.inputField.HandleEvents(key, switchToPage, focusHeader)
+			} else {
+				focusHeader(true)
+				creator.Deselect()
+			}
 			break
 		case tcell.KeyDown:
 			if creator.inputField.IsActive() {
