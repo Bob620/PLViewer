@@ -1,27 +1,27 @@
 package ui
 
 import (
+	"PLViewer/ui/creator"
 	Header "PLViewer/ui/header"
 	"PLViewer/ui/page"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
-var app *tview.Application
+var app = tview.NewApplication()
 var pages *tview.Pages
 
 var header *Header.Header
 
 var PageViewer = page.MakePage("Viewer")
-var PageCreator = page.MakePage("Creator")
+var PageCreator = creator.MakeCreatorPage(app)
 
 var activePage = PageViewer
 
 func Initialize() {
-	app = tview.NewApplication()
 	pages = tview.NewPages()
 
-	header = Header.MakeHeader([]*page.Page{PageViewer, PageCreator})
+	header = Header.MakeHeader([]*page.Page{PageViewer, PageCreator.Page})
 
 	grid := tview.NewGrid().
 		SetRows(3, 0).
@@ -43,28 +43,35 @@ func Initialize() {
 }
 
 func switchToPage(page *page.Page) {
+	activePage.Activate(false)
 	activePage = page
 	pages.SwitchToPage(page.Id)
 }
 
 func eventHandler(key *tcell.EventKey) *tcell.EventKey {
-	if key.Rune() == 'q' {
-		app.Stop()
-		return nil
-	}
-
-	if key.Key() == tcell.KeyEscape {
-		header.Focused(true)
-	}
+	//	if key.Key() == tcell.KeyEscape {
+	//		header.Focused(true)
+	//	}
 
 	if header.IsFocused {
+		if key.Rune() == 'q' {
+			app.Stop()
+			return nil
+		}
+
 		header.HandleEvents(key, switchToPage, header.Focused)
+
+		if !header.IsFocused {
+			if !activePage.IsSelected() {
+				activePage.Select()
+			}
+		}
 	} else {
 		switch activePage {
 		case PageViewer:
 			PageViewer.HandleEvents(key, switchToPage, header.Focused)
 			break
-		case PageCreator:
+		case PageCreator.Page:
 			PageCreator.HandleEvents(key, switchToPage, header.Focused)
 			break
 		}
