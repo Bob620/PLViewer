@@ -35,8 +35,7 @@ func MakeCreatorPage(application *tview.Application) *CreatorPage {
 	creator.inputField.SetLabel("Select a Directory to Pack: ").SetBorder(true)
 	creator.inputField.SetAutocompleteSelectionFunc(func(entry string) string {
 		dir, _ := path.Split(creator.inputField.GetText())
-
-		return path.Join(dir, entry) + string(os.PathSeparator)
+		return path.Join(dir, entry) + "/"
 	}).SetAutocompleteFunc(func(currentText string) (entries []string) {
 		prefix := strings.TrimSpace(strings.ToLower(currentText))
 		if prefix == "" {
