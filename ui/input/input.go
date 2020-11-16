@@ -13,6 +13,7 @@ type Input struct {
 	Mutex                  sync.Mutex
 	Entries                []string
 	ticker                 *time.Ticker
+	interval               time.Duration
 	lastEntries            []string
 	autocompleteSelectFunc func(string) string
 	cursorPos              int
@@ -30,8 +31,10 @@ func MakeInput(application *tview.Application) *Input {
 		lastEntries: []string{},
 		cursorPos:   -1,
 		ticker:      time.NewTicker(time.Second / 2),
+		interval:    time.Second / 2,
 	}
 
+	input.ticker.Stop()
 	go func() {
 		for {
 			_ = <-input.ticker.C
@@ -42,6 +45,23 @@ func MakeInput(application *tview.Application) *Input {
 	}()
 
 	return input
+}
+
+func (input *Input) GetCursorPos() int {
+	text := input.GetText()
+	cursorPos := input.cursorPos
+
+	// Sanitize the cursor position
+	if cursorPos > len(text) || len(text) == 0 {
+		input.cursorPos = -1
+		cursorPos = -1
+	}
+
+	if cursorPos == -1 {
+		cursorPos = len(text)
+	}
+
+	return cursorPos
 }
 
 func (input *Input) GetUpdated() bool {
@@ -58,6 +78,12 @@ func (input *Input) IsActive() bool {
 
 func (input *Input) Activate(yes bool) {
 	input.active = yes
+	if yes {
+		input.blink = true
+		input.ticker.Reset(input.interval)
+	} else {
+		input.ticker.Stop()
+	}
 }
 
 func (input *Input) SetAutocompleteSelectionFunc(handler func(string) string) *Input {
@@ -88,52 +114,35 @@ func (input *Input) Draw(screen tcell.Screen) {
 	x, y, width, _ := input.GetInnerRect()
 	label := input.label
 
+	// Write Label into the input bg box
 	tview.Print(screen, label, x, y, len(label), tview.AlignLeft, tcell.ColorWhite)
 	x += len(label)
 
-	activeColor := tcell.ColorGreen
-	if input.active {
-		activeColor = tcell.ColorLightBlue
-	}
-
 	text := input.GetText()
-	cursorPos := input.cursorPos
+	cursorPos := input.GetCursorPos()
 
-	if cursorPos > len(text) || len(text) == 0 {
-		input.cursorPos = -1
-		cursorPos = -1
+	// Determine cursor effects
+	activeColor := tcell.ColorWhite
+
+	cursorChar := " "
+	if cursorPos < len(text) {
+		cursorChar = string(text[cursorPos])
 	}
 
-	if cursorPos == -1 {
-		cursorPos = len(text)
+	cursorEffect := ""
+	if input.blink && input.active {
+		cursorEffect = "[::r]"
 	}
 
+	// Write out the text before the cursor
 	if cursorPos > 0 {
 		tview.Print(screen, text[0:cursorPos], x, y, width, tview.AlignLeft, tcell.ColorWhite)
 	}
 
-	if !input.active {
-		if cursorPos < len(text) {
-			tview.Print(screen, string(text[cursorPos]), x+cursorPos, y, 1, tview.AlignLeft, activeColor)
-		} else {
-			tview.Print(screen, "˾", x+cursorPos, y, 1, tview.AlignLeft, activeColor)
-		}
-	} else {
-		if cursorPos < len(text) {
-			if input.blink {
-				tview.Print(screen, "˾", x+cursorPos, y, 1, tview.AlignLeft, activeColor)
-			} else {
-				tview.Print(screen, string(text[cursorPos]), x+cursorPos, y, 1, tview.AlignLeft, activeColor)
-			}
-		} else {
-			if input.blink {
-				tview.Print(screen, "˾", x+cursorPos, y, 1, tview.AlignLeft, activeColor)
-			} else {
-				tview.Print(screen, " ", x+cursorPos, y, 1, tview.AlignLeft, activeColor)
-			}
-		}
-	}
+	// Write out the cursor
+	tview.Print(screen, cursorEffect+cursorChar, x+cursorPos, y, 1, tview.AlignLeft, activeColor)
 
+	// Write out the text after the cursor
 	if cursorPos < len(text) {
 		tview.Print(screen, text[cursorPos+1:], x+cursorPos+1, y, width, tview.AlignLeft, tcell.ColorWhite)
 	}
@@ -153,12 +162,39 @@ func (input *Input) HandleEvents(key *tcell.EventKey, switchToPage func(*page.Pa
 			input.SetText("")
 		} else {
 			input.entriesUpdated = true
-			input.SetText(text[0 : length-1])
+			cursorPos := input.GetCursorPos()
+
+			newText := ""
+			if cursorPos > 0 {
+				newText += text[0 : cursorPos-1]
+			}
+
+			if cursorPos < len(text) {
+				newText += text[cursorPos:]
+				if cursorPos > 0 {
+					input.cursorPos--
+				}
+			}
+
+			input.SetText(newText)
 		}
 		break
 	case tcell.KeyRune:
 		input.entriesUpdated = true
-		input.SetText(input.GetText() + string(key.Rune()))
+		text := input.GetText()
+		cursorPos := input.GetCursorPos()
+
+		newText := ""
+		if cursorPos >= 0 {
+			newText += text[0:cursorPos] + string(key.Rune())
+		}
+
+		if cursorPos < len(text) {
+			newText += text[cursorPos:]
+			input.cursorPos++
+		}
+
+		input.SetText(newText)
 		break
 	case tcell.KeyUp:
 		entries := input.GetLastEntries()
