@@ -13,7 +13,7 @@ var pages *tview.Pages
 
 var header *Header.Header
 
-var PageViewer = page.MakePage("Viewer")
+var PageViewer = page.MakePage("Viewer", page.MakeNavigation([][]string{{""}}))
 var PageCreator = creator.MakeCreatorPage(app)
 
 var activePage = PageViewer
@@ -43,36 +43,34 @@ func Initialize() {
 }
 
 func switchToPage(page *page.Page) {
-	activePage.Activate(false)
 	activePage = page
 	pages.SwitchToPage(page.Id)
 }
 
-func eventHandler(key *tcell.EventKey) *tcell.EventKey {
-	//	if key.Key() == tcell.KeyEscape {
-	//		header.Focused(true)
-	//	}
+func focusHeader(yes bool) {
+	header.Focused(yes)
+	if yes {
+		activePage.Deselect()
+	} else {
+		activePage.Select()
+	}
+}
 
+func eventHandler(key *tcell.EventKey) *tcell.EventKey {
 	if header.IsFocused {
 		if key.Rune() == 'q' {
 			app.Stop()
 			return nil
 		}
 
-		header.HandleEvents(key, switchToPage, header.Focused)
-
-		if !header.IsFocused {
-			if !activePage.IsSelected() {
-				activePage.Select()
-			}
-		}
+		header.HandleEvents(key, switchToPage, focusHeader)
 	} else {
 		switch activePage {
 		case PageViewer:
-			PageViewer.HandleEvents(key, switchToPage, header.Focused)
+			PageViewer.HandleEvents(key, switchToPage, focusHeader)
 			break
 		case PageCreator.Page:
-			PageCreator.HandleEvents(key, switchToPage, header.Focused)
+			PageCreator.HandleEvents(key, switchToPage, focusHeader)
 			break
 		}
 	}
