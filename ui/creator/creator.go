@@ -18,7 +18,7 @@ type Creator struct {
 
 func MakeCreatorPage(application *tview.Application) *Creator {
 	creator := Creator{
-		Page: page.MakePage("Creator", page.MakeNavigation([][]string{
+		Page: page.MakePage("Creator", page.MakeLayout([][]string{
 			{"input", "side"},
 			{"log", "side"},
 		})),
@@ -31,13 +31,7 @@ func MakeCreatorPage(application *tview.Application) *Creator {
 	inputElement := element.MakeElement().SetBorders(true)
 	rightElement := element.MakeElement().SetBorders(true)
 	bottomElement := element.MakeElement().SetBorders(true)
-	testElement := element.MakeElement().SetSelectable(false)
-	test1Element := element.MakeElement().SetSelectable(false)
 
-	testElement.Flex().
-		AddItem(tview.NewTextView().SetText("ah"), 0, 1, false)
-	test1Element.Flex().
-		AddItem(tview.NewTextView().SetText("aha"), 0, 1, false)
 	rightElement.Flex().
 		AddItem(tview.NewTextView().SetText("Test"), 0, 1, false)
 	bottomElement.Flex().

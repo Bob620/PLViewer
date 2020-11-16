@@ -13,7 +13,7 @@ var pages *tview.Pages
 
 var header *Header.Header
 
-var PageViewer = page.MakePage("Viewer", page.MakeNavigation([][]string{{""}}))
+var PageViewer = page.MakePage("Viewer", page.MakeLayout([][]string{{""}}))
 var PageCreator = creator.MakeCreatorPage(app)
 
 var activePage = PageViewer

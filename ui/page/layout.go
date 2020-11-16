@@ -46,7 +46,7 @@ func (rc *RowCol) setCol(ele int) bool {
 	return true
 }
 
-func MakeNavigation(nav [][]string) *Layout {
+func MakeLayout(nav [][]string) *Layout {
 	positions := map[string]*Position{}
 	rowCol := map[string]*RowCol{}
 
