@@ -1,7 +1,6 @@
 package input
 
 import (
-	"PLViewer/ui/page"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"sync"
@@ -16,6 +15,7 @@ type Input struct {
 	interval               time.Duration
 	lastEntries            []string
 	autocompleteSelectFunc func(string) string
+	autocompleteFunc       func(string) []string
 	cursorPos              int
 	active                 bool
 	entriesUpdated         bool
@@ -33,6 +33,39 @@ func MakeInput(application *tview.Application) *Input {
 		ticker:      time.NewTicker(time.Second / 2),
 		interval:    time.Second / 2,
 	}
+
+	input.InputField.SetAutocompleteFunc(func(currentText string) (entries []string) {
+		if currentText == "" {
+			return nil
+		}
+
+		input.Mutex.Lock()
+		defer input.Mutex.Unlock()
+
+		if !input.GetUpdated() {
+			var temp []string
+			for _, item := range input.Entries {
+				temp = append(temp, item)
+			}
+			input.ClearEntries()
+			_, _, _, height := input.GetInnerRect()
+
+			if len(temp) > height-2 {
+				return append(temp[:height-2], "More...")
+			}
+			return temp
+		}
+
+		if input.autocompleteFunc != nil {
+			go func() {
+				input.SetEntries(input.autocompleteFunc(currentText))
+				input.Autocomplete()
+				application.Draw()
+			}()
+		}
+
+		return nil
+	})
 
 	input.ticker.Stop()
 	go func() {
@@ -91,6 +124,11 @@ func (input *Input) SetAutocompleteSelectionFunc(handler func(string) string) *I
 	return input
 }
 
+func (input *Input) SetAutocompleteFunc(handler func(string) []string) *Input {
+	input.autocompleteFunc = handler
+	return input
+}
+
 func (input *Input) GetEntries() []string {
 	return input.Entries
 }
@@ -104,8 +142,10 @@ func (input *Input) ClearEntries() {
 }
 
 func (input *Input) SetEntries(entries []string) {
+	input.Mutex.Lock()
 	input.Entries = entries
 	input.lastEntries = entries
+	input.Mutex.Unlock()
 
 }
 
@@ -148,7 +188,7 @@ func (input *Input) Draw(screen tcell.Screen) {
 	}
 }
 
-func (input *Input) HandleEvents(key *tcell.EventKey, switchToPage func(*page.Page), focusHeader func(bool)) {
+func (input *Input) HandleEvents(key *tcell.EventKey) {
 	switch key.Key() {
 	case tcell.KeyDEL:
 		fallthrough
