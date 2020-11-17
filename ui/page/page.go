@@ -12,7 +12,7 @@ type Page struct {
 	grid       *tview.Grid
 	onSelect   func()
 	onDeselect func()
-	elements   map[string]*element.Element
+	elements   map[string]element.Interface
 	layout     *Layout
 	selected   string
 	hasActive  bool
@@ -27,7 +27,7 @@ func MakePage(title string, navigation *Layout) *Page {
 		Id:       title,
 		layout:   navigation,
 		grid:     grid,
-		elements: map[string]*element.Element{},
+		elements: map[string]element.Interface{},
 	}
 }
 
@@ -61,11 +61,11 @@ func (page *Page) AddTo(pages *tview.Pages) {
 	pages.AddPage(page.Id, page.grid, true, false)
 }
 
-func (page *Page) AddElement(ele *element.Element, position string) *Page {
+func (page *Page) AddElement(ele element.Interface, position string) *Page {
 	page.elements[position] = ele
 
 	pos := page.layout.GetPos(position)
-	page.grid.AddItem(ele.Flex(), pos.Pos[0], pos.Pos[1], pos.Height, pos.Width, 0, 0, false)
+	page.grid.AddItem(ele, pos.Pos[0], pos.Pos[1], pos.Height, pos.Width, 0, 0, false)
 	return page
 }
 
