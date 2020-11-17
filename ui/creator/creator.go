@@ -32,11 +32,11 @@ func MakeCreatorPage(application *tview.Application) *Creator {
 	rightElement := element.MakeElement().SetBorders(true)
 	bottomElement := element.MakeElement().SetBorders(true)
 
-	rightElement.Flex().
+	rightElement.GetFlex().
 		AddItem(tview.NewTextView().SetText("Test"), 0, 1, false)
-	bottomElement.Flex().
+	bottomElement.GetFlex().
 		AddItem(tview.NewTextView().SetText("Ahhh"), 0, 1, false)
-	inputElement.Flex().
+	inputElement.GetFlex().
 		AddItem(inputField, 0, 1, false)
 	inputElement.SetOnEvent(func(key *tcell.EventKey) {
 		inputField.HandleEvents(key)
