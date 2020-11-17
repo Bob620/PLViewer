@@ -5,8 +5,35 @@ import (
 	"github.com/rivo/tview"
 )
 
+type Interface interface {
+	GetFlex() *tview.Flex
+	SetSelectable(selectable bool) Interface
+	Selectable() bool
+	SetEscapable(escapable bool) Interface
+	Escapable() bool
+	SetBorders(borders bool) Interface
+	Borders() bool
+	SetOnSelect(handler func()) Interface
+	Select()
+	SetOnDeselect(handler func()) Interface
+	Deselect()
+	SetBorderColor(color tcell.Color) Interface
+	SetOnEvent(handler func(*tcell.EventKey)) Interface
+	HandleEvents(key *tcell.EventKey)
+
+	// Other interface shit for tview
+	Draw(screen tcell.Screen)
+	GetRect() (int, int, int, int)
+	SetRect(x, y, width, height int)
+	InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive))
+	Focus(delegate func(p tview.Primitive))
+	Blur()
+	GetFocusable() tview.Focusable
+	MouseHandler() func(action tview.MouseAction, event *tcell.EventMouse, setFocus func(p tview.Primitive)) (consumed bool, capture tview.Primitive)
+}
+
 type Element struct {
-	flex       *tview.Flex
+	*tview.Flex
 	onSelect   func()
 	onDeselect func()
 	onEvent    func(*tcell.EventKey)
@@ -17,14 +44,18 @@ type Element struct {
 
 func MakeElement() *Element {
 	return &Element{
-		flex:       tview.NewFlex(),
+		Flex:       tview.NewFlex(),
 		selectable: true,
 		escapable:  true,
 		borders:    false,
 	}
 }
 
-func (element *Element) SetSelectable(selectable bool) *Element {
+func (element *Element) GetFlex() *tview.Flex {
+	return element.Flex
+}
+
+func (element *Element) SetSelectable(selectable bool) Interface {
 	element.selectable = selectable
 	return element
 }
@@ -33,7 +64,7 @@ func (element *Element) Selectable() bool {
 	return element.selectable
 }
 
-func (element *Element) SetEscapable(escapable bool) *Element {
+func (element *Element) SetEscapable(escapable bool) Interface {
 	element.escapable = escapable
 	return element
 }
@@ -42,9 +73,9 @@ func (element *Element) Escapable() bool {
 	return element.escapable
 }
 
-func (element *Element) SetBorders(borders bool) *Element {
+func (element *Element) SetBorders(borders bool) Interface {
 	element.borders = borders
-	element.flex.SetBorder(borders)
+	element.Flex.SetBorder(borders)
 	return element
 }
 
@@ -52,11 +83,7 @@ func (element *Element) Borders() bool {
 	return element.borders
 }
 
-func (element *Element) Flex() *tview.Flex {
-	return element.flex
-}
-
-func (element *Element) SetOnSelect(handler func()) *Element {
+func (element *Element) SetOnSelect(handler func()) Interface {
 	element.onSelect = handler
 	return element
 }
@@ -67,7 +94,7 @@ func (element *Element) Select() {
 	}
 }
 
-func (element *Element) SetOnDeselect(handler func()) *Element {
+func (element *Element) SetOnDeselect(handler func()) Interface {
 	element.onDeselect = handler
 	return element
 }
@@ -78,12 +105,12 @@ func (element *Element) Deselect() {
 	}
 }
 
-func (element *Element) SetBorderColor(color tcell.Color) *Element {
-	element.flex.SetBorderColor(color)
+func (element *Element) SetBorderColor(color tcell.Color) Interface {
+	element.Flex.SetBorderColor(color)
 	return element
 }
 
-func (element *Element) SetOnEvent(handler func(*tcell.EventKey)) *Element {
+func (element *Element) SetOnEvent(handler func(*tcell.EventKey)) Interface {
 	element.onEvent = handler
 	return element
 }
