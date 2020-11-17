@@ -4,6 +4,7 @@ import (
 	"PLViewer/ui/creator"
 	Header "PLViewer/ui/header"
 	"PLViewer/ui/page"
+	"PLViewer/ui/viewer"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -13,15 +14,15 @@ var pages *tview.Pages
 
 var header *Header.Header
 
-var PageViewer = page.MakePage("Viewer", page.MakeLayout([][]string{{""}}))
+var PageViewer = viewer.MakeViewerPage()
 var PageCreator = creator.MakeCreatorPage(app)
 
-var activePage = PageViewer
+var activePage = PageViewer.Page
 
 func Initialize() {
 	pages = tview.NewPages()
 
-	header = Header.MakeHeader([]*page.Page{PageViewer, PageCreator.Page})
+	header = Header.MakeHeader([]*page.Page{PageViewer.Page, PageCreator.Page})
 
 	grid := tview.NewGrid().
 		SetRows(3, 0).
@@ -33,7 +34,7 @@ func Initialize() {
 	PageViewer.AddTo(pages)
 	PageCreator.AddTo(pages)
 
-	switchToPage(PageViewer)
+	switchToPage(PageViewer.Page)
 	header.Focused(true)
 
 	app.SetInputCapture(eventHandler)
@@ -66,7 +67,7 @@ func eventHandler(key *tcell.EventKey) *tcell.EventKey {
 		header.HandleEvents(key, switchToPage, focusHeader)
 	} else {
 		switch activePage {
-		case PageViewer:
+		case PageViewer.Page:
 			PageViewer.HandleEvents(key, switchToPage, focusHeader)
 			break
 		case PageCreator.Page:
