@@ -16,6 +16,7 @@ type Input struct {
 	lastEntries            []string
 	autocompleteSelectFunc func(string) string
 	autocompleteFunc       func(string) []string
+	onSubmit               func(string)
 	cursorPos              int
 	active                 bool
 	entriesUpdated         bool
@@ -50,7 +51,7 @@ func MakeInput(application *tview.Application) *Input {
 			input.ClearEntries()
 			_, _, _, height := input.GetInnerRect()
 
-			if len(temp) > height-2 {
+			if len(temp) > height-2 && height-2 > 0 {
 				return append(temp[:height-2], "More...")
 			}
 			return temp
@@ -117,6 +118,11 @@ func (input *Input) Activate(yes bool) {
 	} else {
 		input.ticker.Stop()
 	}
+}
+
+func (input *Input) SetOnSubmit(handler func(string)) *Input {
+	input.onSubmit = handler
+	return input
 }
 
 func (input *Input) SetAutocompleteSelectionFunc(handler func(string) string) *Input {
@@ -188,8 +194,12 @@ func (input *Input) Draw(screen tcell.Screen) {
 	}
 }
 
-func (input *Input) HandleEvents(key *tcell.EventKey) {
+func (input *Input) HandleEvents(key *tcell.EventKey, deSelector func()) {
 	switch key.Key() {
+	case tcell.KeyEnter:
+		deSelector()
+		input.onSubmit(input.GetText())
+		break
 	case tcell.KeyDEL:
 		fallthrough
 	case tcell.KeyDelete:

@@ -18,6 +18,13 @@
 	},
 	"homepage": "https://github.com/Bob620/PLViewer#readme",
 	"dependencies": {
-		"sxes-compressor": "file:../sxes-compressor"
+		"baka-rpc": "github:Bob620/baka-rpc",
+		"sxes-compressor": "file:C:/Users/brude/dev/sxes-compressor",
+		"xes-converter": "file:C:/Users/brude/dev/xes_converter",
+		"festuff": "file:C:/Users/brude/dev/festuff",
+		"ws": "^7.4.0"
+	},
+	"devDependencies": {
+		"mocha": "^8.2.1"
 	}
 }

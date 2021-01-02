@@ -43,7 +43,7 @@ func MakeTree( /*application *tview.Application*/ ) *Tree {
 	tree.Element.SetOnDeselect(func() {
 
 	})
-	tree.Element.SetOnEvent(func(key *tcell.EventKey) {
+	tree.Element.SetOnKeyEvent(func(key *tcell.EventKey, deSelector func()) {
 		switch key.Key() {
 		case tcell.KeyUp:
 			if tree.cursorPos > 0 {
@@ -67,6 +67,8 @@ func MakeTree( /*application *tview.Application*/ ) *Tree {
 			node := tree.currentNodes[cursorPos]
 			if node.node.HasNodes() {
 				node.node.Toggle()
+			} else {
+				node.node.Select()
 			}
 			break
 		}
@@ -77,6 +79,13 @@ func MakeTree( /*application *tview.Application*/ ) *Tree {
 
 func (tree *Tree) GetNode(nodeId string) *Node {
 	return tree.nodes[Id(nodeId)]
+}
+
+func (tree *Tree) ClearNodes() {
+	tree.nodes = map[Id]*Node{}
+	tree.nodeOrder = []Id{}
+	tree.currentNodes = []*nodePos{}
+	tree.cursorPos = 0
 }
 
 func (tree *Tree) DeleteNode(nodeId Id) {
@@ -94,7 +103,7 @@ func (tree *Tree) DeleteNode(nodeId Id) {
 	}
 }
 
-func (tree *Tree) AddNode(text string, lazyLoadSubNodes bool, onSelect func(nodeId string, node Node)) *Node {
+func (tree *Tree) AddNode(text string, lazyLoadSubNodes bool, onSelect func(nodeId Id, node *Node)) *Node {
 	id := Id(strconv.Itoa(nodeId))
 	nodeId++
 

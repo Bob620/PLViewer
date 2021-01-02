@@ -1,16 +1,34 @@
 package viewer
 
 import (
+	"PLViewer/backend"
 	"PLViewer/ui/element"
+	"PLViewer/ui/input"
+	"PLViewer/ui/linegraph"
 	"PLViewer/ui/page"
 	"PLViewer/ui/tree"
+	"github.com/rivo/tview"
+	"io/ioutil"
+	"os"
+	"path"
+	"strings"
 )
 
 type Viewer struct {
 	*page.Page
+	bg *backend.Backend
 }
 
-func MakeViewerPage() *Viewer {
+func getDir(uri string) []os.FileInfo {
+	files, err := ioutil.ReadDir(uri)
+	if err != nil {
+		return []os.FileInfo{}
+	}
+
+	return files
+}
+
+func MakeViewerPage(application *tview.Application, bg *backend.Backend) *Viewer {
 	viewer := Viewer{
 		Page: page.MakePage("Viewer", page.MakeLayout([][]string{
 			{"input", "metadata"},
@@ -18,72 +36,106 @@ func MakeViewerPage() *Viewer {
 			{"tree", "metadata"},
 			{"tree", "graph"},
 		})),
+		bg: bg,
 	}
 	viewer.SetOnSelect(func() {
 		viewer.Page.SelectElement("input")
 	})
 
 	inputElement := element.MakeElement().SetBorders(true)
-	metadataElement := element.MakeElement().SetBorders(true)
+	metadataPages := createMetadata()
+	metadataPages.SetBorders(true).SetSelectable(true)
+
 	treeElement := tree.MakeTree()
-	graphElement := element.MakeElement().SetBorders(true).SetSelectable(false)
+	treeElement.SetBorders(true)
 
-	treeElement.Element.SetBorders(true)
+	graphElement := linegraph.MakeLineGraph()
+	graphElement.SetBorders(true).SetSelectable(false).SetHoverable(false)
 
-	treeElement.
-		AddNode("0", true, nil).
-		AddNode("1", false, nil).
-		AddNode("2", true, nil).
-		AddNode("3", true, nil).
-		AddNode("4", true, nil).
-		AddNode("5", true, nil).
-		AddNode("6", true, nil).
-		AddNode("7", true, nil).
-		AddNode("8", true, nil).
-		AddNode("9", true, nil).
-		AddNode("10", true, nil).
-		AddNode("11", true, nil).
-		AddNode("12", true, nil).
-		AddNode("13", true, nil).
-		AddNode("14", true, nil).
-		AddNode("15", true, nil).
-		AddNode("16", true, nil).
-		AddNode("17", true, nil).
-		AddNode("18", true, nil).
-		AddNode("19", true, nil).
-		AddNode("20", true, nil).
-		AddNode("21", true, nil).
-		AddNode("22", true, nil).
-		AddNode("23", true, nil).
-		AddNode("24", true, nil).
-		AddNode("25", true, nil).
-		AddNode("26", true, nil).
-		AddNode("27", true, nil).
-		AddNode("28", true, nil).
-		AddNode("29", true, nil).
-		AddNode("30", true, nil).
-		AddNode("31", true, nil).
-		AddNode("32", true, nil)
-	test := treeElement.
-		AddNode("33", true, nil).
-		AddNode("36", true, nil)
-	test.
-		AddNode("34", true, nil)
-	test.
-		AddNode("35", true, nil)
-	treeElement.AddNode("37", true, nil)
+	inputBox := input.MakeInput(application)
+	inputElement.GetFlex().AddItem(inputBox, 0, 1, false)
+	inputElement.SetOnSelect(func() {
+		inputBox.Activate(true)
+	})
+	inputElement.SetOnKeyEvent(inputBox.HandleEvents)
+	inputElement.SetOnDeselect(func() {
+		inputBox.Activate(false)
+	})
 
-	//	treeElement.GetNode("3").AddNode("test").AddNode("test1")
-	//	treeElement.GetNode("3").GetNode().AddNode("ahhh")
+	inputBox.SetOnSubmit(func(uri string) {
+		treeElement.ClearNodes()
 
-	//	rightElement.Flex().
-	//		AddItem(tview.NewTextView().SetText("Test"), 0, 1, false)
-	//	bottomElement.Flex().
-	//		AddItem(tview.NewTextView().SetText("Ahhh"), 0, 1, false)
+		bg.Load(uri)
+		projects, _ := bg.GetProjects()
+		for _, project := range projects {
+			project := project
+			treeElement.AddNode(project.Name, true, func(nodeId tree.Id, node *tree.Node) {
+				node.ClearNodes()
+				graphElement.SetLine(nil)
+
+				// Initialize Metadata view
+				metadataPages.SetAsProject(project)
+
+				// Set up downstream nodes
+				for _, analysisUuid := range project.Analyses {
+					analysis, _ := bg.GetAnalysis(analysisUuid.Uuid)
+					text := analysis.Name
+					if text == "" {
+						text = analysis.Comment
+					}
+					if text == "" {
+						text = analysis.AcquisitionDate
+					}
+
+					node.AddNode(text, true, func(nodeId tree.Id, node *tree.Node) {
+						node.ClearNodes()
+						graphElement.SetLine(nil)
+
+						// Initialize Metadata view
+						metadataPages.SetAsAnalysis(project, analysis)
+
+						// Set up downstream nodes
+						for _, positionUuid := range analysis.Positions {
+							position, _ := bg.GetPosition(positionUuid.Uuid)
+							text := position.Comment
+							if text == "" {
+								text = position.Uuid
+							}
+							node.AddNode(text, false, func(nodeId tree.Id, node *tree.Node) {
+								line, _ := bg.GetLine(position.Uuid, position.Types[0])
+								graphElement.SetLine(line)
+
+								// Initialize Metadata view
+								metadataPages.SetAsPosition(project, analysis, position)
+							})
+						}
+					})
+				}
+			})
+		}
+	})
+
+	inputBox.SetAutocompleteSelectionFunc(func(entry string) string {
+		dir, _ := path.Split(inputBox.GetText())
+		return path.Join(dir, entry)
+	}).SetAutocompleteFunc(func(currentText string) (entries []string) {
+		prefix := strings.TrimSpace(strings.ToLower(currentText))
+		dir, wanted := path.Split(prefix)
+		files := getDir(dir)
+
+		for _, file := range files {
+			if file.IsDir() || strings.HasSuffix(file.Name(), ".plzip") || strings.HasSuffix(file.Name(), ".pl7z") {
+				if wanted == "" || strings.Contains(strings.ToLower(file.Name()), wanted) {
+					entries = append(entries, file.Name())
+				}
+			}
+		}
+		return entries
+	})
 
 	viewer.
 		AddElement(inputElement, "input").
-		AddElement(metadataElement, "metadata").
+		AddElement(metadataPages, "metadata").
 		AddElement(treeElement, "tree").
 		AddElement(graphElement, "graph")
 

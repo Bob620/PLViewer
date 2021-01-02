@@ -1,9 +1,11 @@
 package ui
 
 import (
+	"PLViewer/backend"
 	"PLViewer/ui/creator"
 	Header "PLViewer/ui/header"
 	"PLViewer/ui/page"
+	"PLViewer/ui/processor"
 	"PLViewer/ui/viewer"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -14,15 +16,21 @@ var pages *tview.Pages
 
 var header *Header.Header
 
-var PageViewer = viewer.MakeViewerPage()
-var PageCreator = creator.MakeCreatorPage(app)
+var PageViewer *viewer.Viewer
+var PageCreator *creator.Creator
+var PageProcessor *processor.Processor
 
-var activePage = PageViewer.Page
+var activePage *page.Page
 
-func Initialize() {
+func Initialize(bg *backend.Backend) {
+	PageViewer = viewer.MakeViewerPage(app, bg)
+	PageCreator = creator.MakeCreatorPage(app)
+	PageProcessor = processor.MakeProcessorPage(app, bg)
+	activePage = PageViewer.Page
+
 	pages = tview.NewPages()
 
-	header = Header.MakeHeader([]*page.Page{PageViewer.Page, PageCreator.Page})
+	header = Header.MakeHeader([]*page.Page{PageViewer.Page, PageCreator.Page, PageProcessor.Page})
 
 	grid := tview.NewGrid().
 		SetRows(3, 0).
@@ -33,6 +41,7 @@ func Initialize() {
 
 	PageViewer.AddTo(pages)
 	PageCreator.AddTo(pages)
+	PageProcessor.AddTo(pages)
 
 	switchToPage(PageViewer.Page)
 	header.Focused(true)
@@ -68,10 +77,13 @@ func eventHandler(key *tcell.EventKey) *tcell.EventKey {
 	} else {
 		switch activePage {
 		case PageViewer.Page:
-			PageViewer.HandleEvents(key, switchToPage, focusHeader)
+			PageViewer.HandleKeyEvent(key, switchToPage, focusHeader)
 			break
 		case PageCreator.Page:
-			PageCreator.HandleEvents(key, switchToPage, focusHeader)
+			PageCreator.HandleKeyEvent(key, switchToPage, focusHeader)
+			break
+		case PageProcessor.Page:
+			PageProcessor.HandleKeyEvent(key, switchToPage, focusHeader)
 			break
 		}
 	}

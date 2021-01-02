@@ -9,13 +9,22 @@ type Node struct {
 	text       string
 	subNodes   []*Node
 	subNodeMap map[Id]*Node
-	onSelect   func(string, Node)
+	onSelect   func(Id, *Node)
 	open       bool
 	hasNodes   bool
 }
 
+func (node *Node) Select() {
+	if node.onSelect != nil {
+		node.onSelect(node.id, node)
+	}
+}
+
 func (node *Node) Open() {
 	node.open = true
+	if node.onSelect != nil {
+		node.onSelect(node.id, node)
+	}
 }
 
 func (node *Node) Close() {
@@ -24,9 +33,17 @@ func (node *Node) Close() {
 
 func (node *Node) Toggle() {
 	node.open = !node.open
+	if node.open && node.onSelect != nil {
+		node.onSelect(node.id, node)
+	}
 }
 
-func (node *Node) AddNode(text string, lazyLoadSubNodes bool, onSelect func(nodeId string, node Node)) *Node {
+func (node *Node) ClearNodes() {
+	node.subNodes = nil
+	node.subNodeMap = nil
+}
+
+func (node *Node) AddNode(text string, lazyLoadSubNodes bool, onSelect func(nodeId Id, node *Node)) *Node {
 	id := Id(strconv.Itoa(nodeId))
 	nodeId++
 	var newNode *Node
@@ -36,7 +53,7 @@ func (node *Node) AddNode(text string, lazyLoadSubNodes bool, onSelect func(node
 			id:       id,
 			text:     text,
 			subNodes: nil,
-			onSelect: nil,
+			onSelect: onSelect,
 			open:     false,
 			hasNodes: lazyLoadSubNodes,
 		}
@@ -47,7 +64,7 @@ func (node *Node) AddNode(text string, lazyLoadSubNodes bool, onSelect func(node
 			id:       id,
 			text:     text,
 			subNodes: nil,
-			onSelect: nil,
+			onSelect: onSelect,
 			open:     false,
 			hasNodes: lazyLoadSubNodes,
 		}

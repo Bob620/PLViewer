@@ -7,8 +7,14 @@ import (
 
 type Interface interface {
 	GetFlex() *tview.Flex
+	SetEvent(event string, handler func()) Interface
+	EmitEvent(event string) Interface
 	SetSelectable(selectable bool) Interface
 	Selectable() bool
+	SetHoverable(hoverable bool) Interface
+	Hoverable() bool
+	SetBleedThrough(bleedThrough bool) Interface
+	BleedThrough() bool
 	SetEscapable(escapable bool) Interface
 	Escapable() bool
 	SetBorders(borders bool) Interface
@@ -17,9 +23,13 @@ type Interface interface {
 	Select()
 	SetOnDeselect(handler func()) Interface
 	Deselect()
+	SetOnHover(handler func()) Interface
+	Hover()
+	SetOffHover(handler func()) Interface
+	OffHover()
 	SetBorderColor(color tcell.Color) Interface
-	SetOnEvent(handler func(*tcell.EventKey)) Interface
-	HandleEvents(key *tcell.EventKey)
+	SetOnKeyEvent(handler func(*tcell.EventKey, func())) Interface
+	HandleKeyEvent(key *tcell.EventKey, deSelector func())
 
 	// Other interface shit for tview
 	Draw(screen tcell.Screen)
@@ -34,25 +44,42 @@ type Interface interface {
 
 type Element struct {
 	*tview.Flex
-	onSelect   func()
-	onDeselect func()
-	onEvent    func(*tcell.EventKey)
-	selectable bool
-	escapable  bool
-	borders    bool
+	customEvents map[string]func()
+	onEvent      func(*tcell.EventKey, func())
+	selectable   bool
+	hoverable    bool
+	bleedThrough bool
+	escapable    bool
+	borders      bool
 }
 
 func MakeElement() *Element {
 	return &Element{
-		Flex:       tview.NewFlex(),
-		selectable: true,
-		escapable:  true,
-		borders:    false,
+		Flex:         tview.NewFlex(),
+		customEvents: map[string]func(){},
+		selectable:   true,
+		hoverable:    true,
+		bleedThrough: false,
+		escapable:    true,
+		borders:      false,
 	}
 }
 
 func (element *Element) GetFlex() *tview.Flex {
 	return element.Flex
+}
+
+func (element *Element) SetEvent(event string, handler func()) Interface {
+	element.customEvents[event] = handler
+	return element
+}
+
+func (element *Element) EmitEvent(event string) Interface {
+	handler := element.customEvents[event]
+	if handler != nil {
+		handler()
+	}
+	return element
 }
 
 func (element *Element) SetSelectable(selectable bool) Interface {
@@ -62,6 +89,24 @@ func (element *Element) SetSelectable(selectable bool) Interface {
 
 func (element *Element) Selectable() bool {
 	return element.selectable
+}
+
+func (element *Element) SetHoverable(hoverable bool) Interface {
+	element.hoverable = hoverable
+	return element
+}
+
+func (element *Element) Hoverable() bool {
+	return element.hoverable
+}
+
+func (element *Element) SetBleedThrough(bleedThrough bool) Interface {
+	element.bleedThrough = bleedThrough
+	return element
+}
+
+func (element *Element) BleedThrough() bool {
+	return element.bleedThrough
 }
 
 func (element *Element) SetEscapable(escapable bool) Interface {
@@ -84,25 +129,39 @@ func (element *Element) Borders() bool {
 }
 
 func (element *Element) SetOnSelect(handler func()) Interface {
-	element.onSelect = handler
+	element.SetEvent("select", handler)
 	return element
 }
 
 func (element *Element) Select() {
-	if element.onSelect != nil {
-		element.onSelect()
-	}
+	element.EmitEvent("select")
 }
 
 func (element *Element) SetOnDeselect(handler func()) Interface {
-	element.onDeselect = handler
+	element.SetEvent("deselect", handler)
 	return element
 }
 
 func (element *Element) Deselect() {
-	if element.onDeselect != nil {
-		element.onDeselect()
-	}
+	element.EmitEvent("deselect")
+}
+
+func (element *Element) SetOnHover(handler func()) Interface {
+	element.SetEvent("onHover", handler)
+	return element
+}
+
+func (element *Element) Hover() {
+	element.EmitEvent("onHover")
+}
+
+func (element *Element) SetOffHover(handler func()) Interface {
+	element.SetEvent("offHover", handler)
+	return element
+}
+
+func (element *Element) OffHover() {
+	element.EmitEvent("offHover")
 }
 
 func (element *Element) SetBorderColor(color tcell.Color) Interface {
@@ -110,13 +169,13 @@ func (element *Element) SetBorderColor(color tcell.Color) Interface {
 	return element
 }
 
-func (element *Element) SetOnEvent(handler func(*tcell.EventKey)) Interface {
+func (element *Element) SetOnKeyEvent(handler func(*tcell.EventKey, func())) Interface {
 	element.onEvent = handler
 	return element
 }
 
-func (element *Element) HandleEvents(key *tcell.EventKey) {
+func (element *Element) HandleKeyEvent(key *tcell.EventKey, deSelector func()) {
 	if element.onEvent != nil {
-		element.onEvent(key)
+		element.onEvent(key, deSelector)
 	}
 }

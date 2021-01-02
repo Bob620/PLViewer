@@ -1,7 +1,11 @@
 package main
 
-import "PLViewer/ui"
+import (
+	"PLViewer/backend"
+	"PLViewer/ui"
+)
 
 func main() {
-	ui.Initialize()
+	bg := backend.StartBackend()
+	ui.Initialize(bg)
 }
