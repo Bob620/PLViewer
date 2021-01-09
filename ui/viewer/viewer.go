@@ -65,6 +65,10 @@ func MakeViewerPage(application *tview.Application, bg *backend.Backend) *Viewer
 	inputBox.SetOnSubmit(func(uri string) {
 		treeElement.ClearNodes()
 
+		if !strings.HasSuffix(uri, ".plzip") {
+			return
+		}
+
 		bg.Load(uri)
 		projects, _ := bg.GetProjects()
 		for _, project := range projects {
