@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"bytes"
 	"log"
 	"os/exec"
 	"sync"
@@ -30,7 +31,7 @@ func RunCreator(output chan<- string, uri string, options *CreatorOptions) {
 		for {
 			buf := make([]byte, 100)
 			_, err := stdout.Read(buf)
-			line += string(buf)
+			line += string(bytes.Trim(buf, "\x00"))
 
 			if line != "" {
 				for i, rawChar := range line {
@@ -47,7 +48,7 @@ func RunCreator(output chan<- string, uri string, options *CreatorOptions) {
 			}
 		}
 
-		for line != "" {
+		for len(line) > 0 {
 			for i, rawChar := range line {
 				char := string(rawChar)
 				if char == "\n" {

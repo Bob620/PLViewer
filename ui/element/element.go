@@ -15,6 +15,8 @@ type Interface interface {
 	Hoverable() bool
 	SetBleedThrough(bleedThrough bool) Interface
 	BleedThrough() bool
+	SetInlay(inlay bool) Interface
+	Inlay() bool
 	SetEscapable(escapable bool) Interface
 	Escapable() bool
 	SetBorders(borders bool) Interface
@@ -51,6 +53,7 @@ type Element struct {
 	bleedThrough bool
 	escapable    bool
 	borders      bool
+	inlay        bool
 }
 
 func MakeElement() *Element {
@@ -62,6 +65,7 @@ func MakeElement() *Element {
 		bleedThrough: false,
 		escapable:    true,
 		borders:      false,
+		inlay:        false,
 	}
 }
 
@@ -107,6 +111,15 @@ func (element *Element) SetBleedThrough(bleedThrough bool) Interface {
 
 func (element *Element) BleedThrough() bool {
 	return element.bleedThrough
+}
+
+func (element *Element) SetInlay(inlay bool) Interface {
+	element.inlay = inlay
+	return element
+}
+
+func (element *Element) Inlay() bool {
+	return element.inlay
 }
 
 func (element *Element) SetEscapable(escapable bool) Interface {

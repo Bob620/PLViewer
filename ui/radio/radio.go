@@ -5,7 +5,6 @@ import (
 	"PLViewer/ui/page"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
-	"strconv"
 )
 
 type Option struct {
@@ -22,52 +21,39 @@ type internalOption struct {
 
 type Radio struct {
 	*element.Element
-	Page             *page.Page
-	label            string
-	options          []*internalOption
-	selectedOption   string
-	selectedPosition int
-	width            int
-	height           int
+	Page           *page.Page
+	label          string
+	options        []*internalOption
+	selectedOption string
+	width          int
+	height         int
 }
 
 func MakeRadioSelector(label string, options []*Option) *Radio {
 	radio := Radio{
-		Element:          element.MakeElement(),
-		Page:             page.MakePage("", page.MakeLayout([][]string{{}})),
-		label:            label,
-		options:          []*internalOption{},
-		selectedOption:   "",
-		selectedPosition: -1,
-		width:            len(label),
-		height:           1,
+		Element:        element.MakeElement(),
+		Page:           page.MakePage("", page.MakeLayout([][]string{{}})),
+		label:          label,
+		options:        []*internalOption{},
+		selectedOption: "",
+		width:          len(label),
+		height:         1,
 	}
 
 	radio.AddItem(radio.Page, 0, 1, false)
 
 	radio.SetOnHover(func() {
-		if radio.selectedPosition != -1 {
-			radio.options[radio.selectedPosition].element.Hover()
-		}
+		radio.Page.SelectElement(radio.selectedOption)
 	})
 
 	radio.SetOffHover(func() {
-		if radio.selectedPosition != -1 {
-			radio.options[radio.selectedPosition].element.OffHover()
-		}
+		radio.Page.Deselect()
 	})
 
-	radio.SetSelectable(false)
+	radio.SetSelectable(false).SetInlay(true).SetEscapable(false)
 
 	radio.SetOnKeyEvent(func(key *tcell.EventKey, deSelector func()) {
-		switch key.Key() {
-		case tcell.KeyUp:
-			radio.MoveUp()
-			break
-		case tcell.KeyDown:
-			radio.MoveDown()
-			break
-		}
+		radio.Page.HandleKeyEvent(key, func(p *page.Page) {}, func(b bool) {})
 	})
 
 	for _, option := range options {
@@ -83,16 +69,16 @@ func (radio *Radio) SetLabel(label string) {
 
 func (radio *Radio) reLayout() {
 	newLayout := [][]string{{"label"}}
-	for i := range radio.options {
-		newLayout = append(newLayout, []string{strconv.Itoa(i)})
+	for _, option := range radio.options {
+		newLayout = append(newLayout, []string{option.id})
 	}
 
 	radio.Page.Clear()
 	radio.Page.SetLayout(page.MakeLayout(newLayout))
 
 	maxWidth := len(radio.label)
-	for i, option := range radio.options {
-		radio.Page.AddElement(option.element, strconv.Itoa(i))
+	for _, option := range radio.options {
+		radio.Page.AddElement(option.element, option.id)
 
 		nameLength := len(option.name)
 		if maxWidth < nameLength {
@@ -108,13 +94,11 @@ func (radio *Radio) SelectOption(id string) {
 	if id == radio.selectedOption {
 		return
 	}
-
 	oldId := radio.selectedOption
 
-	for i, option := range radio.options {
+	for _, option := range radio.options {
 		if option.id == id {
 			radio.selectedOption = id
-			radio.selectedPosition = i
 			option.checkbox.SetChecked(true)
 		}
 
@@ -128,10 +112,8 @@ func (radio *Radio) AddOption(name string, id string) {
 	label := tview.NewTextView().SetText(name)
 	checkbox := tview.NewCheckbox().SetLabel(" ")
 	ele := element.MakeElement()
-	ele.SetOnSelect(func() {
+	ele.SetOnHover(func() {
 		radio.SelectOption(id)
-		radio.Page.DeselectActiveElement()
-	}).SetOnHover(func() {
 		checkbox.SetFieldBackgroundColor(tcell.ColorWhite)
 		checkbox.SetFieldTextColor(tcell.ColorBlue)
 	}).SetOffHover(func() {
@@ -159,7 +141,6 @@ func (radio *Radio) DeleteOption(id string) {
 
 			if radio.selectedOption == option.id {
 				radio.selectedOption = ""
-				radio.selectedPosition = -1
 			}
 		}
 	}
@@ -171,35 +152,6 @@ func (radio *Radio) Clear() {
 	radio.options = []*internalOption{}
 	radio.selectedOption = ""
 	radio.reLayout()
-}
-
-func (radio *Radio) MoveDown() {
-	if radio.selectedPosition != -1 {
-		radio.options[radio.selectedPosition].element.OffHover()
-	}
-
-	radio.selectedPosition++
-	maxPos := len(radio.options) - 1
-	if radio.selectedPosition > maxPos {
-		radio.selectedPosition = maxPos
-	}
-
-	radio.SelectOption(radio.options[radio.selectedPosition].id)
-	radio.options[radio.selectedPosition].element.Hover()
-}
-
-func (radio *Radio) MoveUp() {
-	if radio.selectedPosition != -1 {
-		radio.options[radio.selectedPosition].element.OffHover()
-	}
-
-	radio.selectedPosition--
-	if radio.selectedPosition == -1 {
-		radio.selectedPosition = 0
-	}
-
-	radio.SelectOption(radio.options[radio.selectedPosition].id)
-	radio.options[radio.selectedPosition].element.Hover()
 }
 
 func (radio *Radio) Serialize() string {

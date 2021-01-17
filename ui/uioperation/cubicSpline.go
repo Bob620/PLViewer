@@ -12,24 +12,23 @@ import (
 	"strconv"
 )
 
-func MakeMakeSlice(app *tview.Application, bg *backend.Backend, interopData *interop.InteropData, deleteFunc func()) *Operation {
-	dataStore := operations.MakeMakeSlice()
+func MakeCubicSpline(app *tview.Application, bg *backend.Backend, interopData *interop.InteropData, deleteFunc func()) *Operation {
+	dataStore := operations.MakeCubicSpline()
 	operation := MakeOperation(bg, page.MakeLayout([][]string{
 		{"inName", "inName", "inName"},
 		{"inName", "inName", "inName"},
 		{"outName", "outName", "outName"},
 		{"outName", "outName", "outName"},
-		{"", "", "low"},
-		{"", "", "low"},
-		{"", "", "high"},
-		{"", "", "high"},
+		{"", "", "interpret"},
+		{"", "", "interpret"},
+		{"", "", ""},
+		{"", "", ""},
 		{"", "", "delete"},
 	}), dataStore, deleteFunc)
-	lowInput := input.MakeInput(app)
-	highInput := input.MakeInput(app)
+	interpretInput := input.MakeInput(app)
 
 	operation.SetPreDraw(func() {
-		newLabel := fmt.Sprintf("Make Slice - %s[%d:%d] as %s", dataStore.GetInName(), dataStore.GetLow(), dataStore.GetHigh(), dataStore.GetName())
+		newLabel := fmt.Sprintf("Cubic Spline - %s[%d] as %s", dataStore.GetInName(), dataStore.GetInterpret(), dataStore.GetName())
 
 		if operation.GetLabel() != newLabel {
 			operation.SetLabel(newLabel)
@@ -66,51 +65,29 @@ func MakeMakeSlice(app *tview.Application, bg *backend.Backend, interopData *int
 	outNameElement.SetOnKeyEvent(outNameInput.HandleEvents)
 	outNameInput.SetOnSubmit(dataStore.SetName)
 
-	lowElement := element.MakeElement()
-	lowElement.SetDirection(tview.FlexRow)
-	lowElement.SetBorders(true)
-	lowElement.SetTitle(" Low ")
-	lowElement.AddItem(lowInput, 0, 1, false)
-	lowElement.SetOnSelect(func() {
-		lowInput.Activate(true)
+	interpretElement := element.MakeElement()
+	interpretElement.SetDirection(tview.FlexRow)
+	interpretElement.SetBorders(true)
+	interpretElement.SetTitle(" Interpolation ")
+	interpretElement.AddItem(interpretInput, 0, 1, false)
+	interpretElement.SetOnSelect(func() {
+		interpretInput.Activate(true)
 	})
-	lowElement.SetOnDeselect(func() {
-		lowInput.Activate(false)
+	interpretElement.SetOnDeselect(func() {
+		interpretInput.Activate(false)
 	})
-	lowElement.SetOnKeyEvent(lowInput.HandleEvents)
-	lowInput.SetOnSubmit(func(lowString string) {
-		dataStore.SetLow(lowString)
-		low := dataStore.GetLow()
-		if low != 0 {
-			lowInput.SetText(strconv.Itoa(low))
-		}
-	})
-
-	highElement := element.MakeElement()
-	highElement.SetDirection(tview.FlexRow)
-	highElement.SetBorders(true)
-	highElement.SetTitle(" High ")
-	highElement.AddItem(highInput, 0, 1, false)
-	highElement.SetOnSelect(func() {
-		highInput.Activate(true)
-	})
-	highElement.SetOnDeselect(func() {
-		highInput.Activate(false)
-	})
-	highElement.SetOnKeyEvent(highInput.HandleEvents)
-	highInput.SetOnSubmit(func(highString string) {
-		dataStore.SetHigh(highString)
-		high := dataStore.GetHigh()
-		if high != 0 {
-			highInput.SetText(strconv.Itoa(high))
+	interpretElement.SetOnKeyEvent(interpretInput.HandleEvents)
+	interpretInput.SetOnSubmit(func(interp string) {
+		value, err := strconv.Atoi(interp)
+		if err == nil {
+			dataStore.SetInterpret(value)
 		}
 	})
 
 	operation.
 		AddElement(inNameElement, "inName").
 		AddElement(outNameElement, "outName").
-		AddElement(lowElement, "low").
-		AddElement(highElement, "high")
+		AddElement(interpretElement, "interpret")
 
 	operation.SetOnSelect(func() {
 		operation.SelectElement("inName")

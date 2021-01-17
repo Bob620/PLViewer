@@ -5,14 +5,15 @@ import (
 	"PLViewer/processor/operations"
 	"PLViewer/ui/element"
 	"PLViewer/ui/input"
+	"PLViewer/ui/interop"
 	"PLViewer/ui/page"
 	"fmt"
 	"github.com/rivo/tview"
 )
 
-func MakeLoadSpec(app *tview.Application, bg *backend.Backend, deleteFunc func()) *Operation {
+func MakeLoadSpec(app *tview.Application, bg *backend.Backend, interopData *interop.InteropData, deleteFunc func()) *Operation {
 	dataStore := operations.MakeLoadSpec()
-	operation := MakeOperation("Load Spectrum", bg, page.MakeLayout([][]string{
+	operation := MakeOperation(bg, page.MakeLayout([][]string{
 		{"zip", "zip", "zip"},
 		{"zip", "zip", "zip"},
 		{"uuid", "uuid", "type"},
@@ -21,7 +22,7 @@ func MakeLoadSpec(app *tview.Application, bg *backend.Backend, deleteFunc func()
 		{"name", "name", "name"},
 		{"", "", ""},
 		{"", "", "delete"},
-	}), dataStore)
+	}), dataStore, deleteFunc)
 
 	operation.SetPreDraw(func() {
 		newLabel := fmt.Sprintf("Load Spectrum - %s", dataStore.GetName())
@@ -35,7 +36,7 @@ func MakeLoadSpec(app *tview.Application, bg *backend.Backend, deleteFunc func()
 	zipElement := element.MakeElement()
 	zipElement.SetDirection(tview.FlexRow)
 	zipElement.SetBorders(true)
-	zipElement.AddItem(tview.NewTextView().SetText("Zip Name:").SetTextAlign(tview.AlignCenter), 0, 1, false)
+	zipElement.SetTitle(" Zip Name ")
 	zipElement.AddItem(zipInput, 0, 1, false)
 	zipElement.SetOnSelect(func() {
 		zipInput.Activate(true)
@@ -50,7 +51,7 @@ func MakeLoadSpec(app *tview.Application, bg *backend.Backend, deleteFunc func()
 	uuidElement := element.MakeElement()
 	uuidElement.SetDirection(tview.FlexRow)
 	uuidElement.SetBorders(true)
-	uuidElement.AddItem(tview.NewTextView().SetText("UUID:").SetTextAlign(tview.AlignCenter), 0, 1, false)
+	uuidElement.SetTitle(" UUID ")
 	uuidElement.AddItem(uuidInput, 0, 1, false)
 	uuidElement.SetOnSelect(func() {
 		uuidInput.Activate(true)
@@ -65,7 +66,7 @@ func MakeLoadSpec(app *tview.Application, bg *backend.Backend, deleteFunc func()
 	typeElement := element.MakeElement()
 	typeElement.SetDirection(tview.FlexRow)
 	typeElement.SetBorders(true)
-	typeElement.AddItem(tview.NewTextView().SetText("Type:").SetTextAlign(tview.AlignCenter), 0, 1, false)
+	typeElement.SetTitle(" Type ")
 	typeElement.AddItem(typeInput, 0, 1, false)
 	typeElement.SetOnSelect(func() {
 		typeInput.Activate(true)
@@ -80,7 +81,7 @@ func MakeLoadSpec(app *tview.Application, bg *backend.Backend, deleteFunc func()
 	nameElement := element.MakeElement()
 	nameElement.SetDirection(tview.FlexRow)
 	nameElement.SetBorders(true)
-	nameElement.AddItem(tview.NewTextView().SetText("Name:").SetTextAlign(tview.AlignCenter), 0, 1, false)
+	nameElement.SetTitle(" Name ")
 	nameElement.AddItem(nameInput, 0, 1, false)
 	nameElement.SetOnSelect(func() {
 		nameInput.Activate(true)
@@ -91,22 +92,14 @@ func MakeLoadSpec(app *tview.Application, bg *backend.Backend, deleteFunc func()
 	nameElement.SetOnKeyEvent(nameInput.HandleEvents)
 	nameInput.SetOnSubmit(dataStore.SetName)
 
-	deleteElement := element.MakeElement()
-	deleteElement.SetBorders(true)
-	deleteElement.AddItem(tview.NewTextView().SetText("Delete").SetTextAlign(tview.AlignCenter), 0, 1, false)
-	deleteElement.SetOnSelect(func() {
-		deleteFunc()
-	})
-
 	operation.
 		AddElement(zipElement, "zip").
 		AddElement(uuidElement, "uuid").
 		AddElement(typeElement, "type").
-		AddElement(nameElement, "name").
-		AddElement(deleteElement, "delete")
+		AddElement(nameElement, "name")
 
 	operation.SetOnSelect(func() {
-		operation.SelectElement("uuid")
+		operation.SelectElement("zip")
 	})
 
 	return operation

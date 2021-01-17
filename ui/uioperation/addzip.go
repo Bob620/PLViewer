@@ -5,6 +5,7 @@ import (
 	"PLViewer/processor/operations"
 	"PLViewer/ui/element"
 	"PLViewer/ui/input"
+	"PLViewer/ui/interop"
 	"PLViewer/ui/page"
 	"fmt"
 	"github.com/rivo/tview"
@@ -14,9 +15,9 @@ import (
 	"strings"
 )
 
-func MakeAddPLZip(app *tview.Application, bg *backend.Backend, deleteFunc func()) *Operation {
+func MakeAddPLZip(app *tview.Application, bg *backend.Backend, interopData *interop.InteropData, deleteFunc func()) *Operation {
 	dataStore := operations.MakeAddZip()
-	operation := MakeOperation("Add PLZip", bg, page.MakeLayout([][]string{
+	operation := MakeOperation(bg, page.MakeLayout([][]string{
 		{"file", "file", "file"},
 		{"file", "file", "file"},
 		{"name", "name", "name"},
@@ -25,7 +26,7 @@ func MakeAddPLZip(app *tview.Application, bg *backend.Backend, deleteFunc func()
 		{"", "", ""},
 		{"", "", ""},
 		{"", "", "delete"},
-	}), dataStore)
+	}), dataStore, deleteFunc)
 
 	operation.SetPreDraw(func() {
 		newLabel := fmt.Sprintf("Add PLZip - %s", dataStore.GetName())
@@ -39,7 +40,7 @@ func MakeAddPLZip(app *tview.Application, bg *backend.Backend, deleteFunc func()
 	fileElement := element.MakeElement()
 	fileElement.SetDirection(tview.FlexRow)
 	fileElement.SetBorders(true)
-	fileElement.AddItem(tview.NewTextView().SetText("File:").SetTextAlign(tview.AlignCenter), 0, 1, false)
+	fileElement.SetTitle(" File ")
 	fileElement.AddItem(fileInput, 0, 1, false)
 	fileElement.SetOnSelect(func() {
 		fileInput.Activate(true)
@@ -48,22 +49,51 @@ func MakeAddPLZip(app *tview.Application, bg *backend.Backend, deleteFunc func()
 		fileInput.Activate(false)
 	})
 	fileElement.SetOnKeyEvent(fileInput.HandleEvents)
-	fileInput.SetOnSubmit(dataStore.SetUri)
+	fileInput.SetOnSubmit(func(uri string) {
+		oldUri := dataStore.GetUri()
+		dataStore.SetUri(uri)
+		uris := interopData.GetStringArray("addZipUris")
+		uris.Add(uri)
+		if oldUri != "" {
+			uris.Remove(oldUri)
+		}
+	})
 	fileInput.SetAutocompleteSelectionFunc(func(entry string) string {
+		if strings.HasPrefix(entry[1:], ":") {
+			return entry
+		}
+
 		dir, _ := path.Split(fileInput.GetText())
 		return path.Join(dir, entry)
 	}).SetAutocompleteFunc(func(currentText string) (entries []string) {
-		prefix := strings.TrimSpace(strings.ToLower(currentText))
-		dir, wanted := path.Split(prefix)
+		currentText = strings.ReplaceAll(strings.TrimSpace(strings.ToLower(currentText)), "\\", "/")
+		dir, wanted := path.Split(currentText)
 		files := getDir(dir)
 
+		viewerUri := interopData.GetString("viewerUri")
+		creatorUri := interopData.GetString("creatorUri")
+
+		testUri := func(uri string) {
+			cleanUri := strings.ReplaceAll(strings.TrimSpace(strings.ToLower(uri)), "\\", "/")
+			dir, _ := path.Split(cleanUri)
+
+			if uri != "" && !strings.HasPrefix(currentText, dir) {
+				entries = append(entries, uri)
+			}
+		}
+
+		testUri(viewerUri)
+		testUri(creatorUri)
+
 		for _, file := range files {
-			if file.IsDir() || strings.HasSuffix(file.Name(), ".plzip") || strings.HasSuffix(file.Name(), ".pl7z") {
-				if wanted == "" || strings.Contains(strings.ToLower(file.Name()), wanted) {
+			fileName := strings.ToLower(file.Name())
+			if file.IsDir() || strings.HasSuffix(fileName, ".plzip") || strings.HasSuffix(fileName, ".pl7z") {
+				if wanted == "" || (strings.Contains(fileName, wanted) && fileName != wanted) {
 					entries = append(entries, file.Name())
 				}
 			}
 		}
+
 		return entries
 	})
 
@@ -71,7 +101,7 @@ func MakeAddPLZip(app *tview.Application, bg *backend.Backend, deleteFunc func()
 	nameElement := element.MakeElement()
 	nameElement.SetDirection(tview.FlexRow)
 	nameElement.SetBorders(true)
-	nameElement.AddItem(tview.NewTextView().SetText("Name:").SetTextAlign(tview.AlignCenter), 0, 1, false)
+	nameElement.SetTitle(" Name ")
 	nameElement.AddItem(nameInput, 0, 1, false)
 	nameElement.SetOnSelect(func() {
 		nameInput.Activate(true)
@@ -82,17 +112,9 @@ func MakeAddPLZip(app *tview.Application, bg *backend.Backend, deleteFunc func()
 	nameElement.SetOnKeyEvent(nameInput.HandleEvents)
 	nameInput.SetOnSubmit(dataStore.SetName)
 
-	deleteElement := element.MakeElement()
-	deleteElement.SetBorders(true)
-	deleteElement.AddItem(tview.NewTextView().SetText("Delete").SetTextAlign(tview.AlignCenter), 0, 1, false)
-	deleteElement.SetOnSelect(func() {
-		deleteFunc()
-	})
-
 	operation.
 		AddElement(fileElement, "file").
-		AddElement(nameElement, "name").
-		AddElement(deleteElement, "delete")
+		AddElement(nameElement, "name")
 
 	operation.SetOnSelect(func() {
 		operation.SelectElement("file")

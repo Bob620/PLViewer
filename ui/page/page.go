@@ -11,15 +11,21 @@ type Interface interface {
 	Select()
 	SetOnDeselect(handler func())
 	Deselect()
+	SetOnNavigateOutside(handler func(direction string))
 	SetPreDraw(handler func())
 	AddTo(pages *tview.Pages)
 	Clear()
 	AddElement(ele element.Interface, position string) *Page
 	AddPageAsElement(newPage Interface, position string) *Page
+	deleteElement(position string) *Page
 	selectElement(element string)
 	SelectElement(element string)
 	HoveredElement() string
 	SelectedElement() string
+	NavigateUp() bool
+	NavigateDown() bool
+	NavigateLeft() bool
+	NavigateRight() bool
 	navigate(direction string) bool
 	DeselectActiveElement()
 	HandleEvents(key *tcell.EventKey, switchToPage func(*Page), focusHeader func(bool))
@@ -31,11 +37,12 @@ type Page struct {
 	Id         string
 	onSelect   func()
 	onDeselect func()
+	onOverflow func(string)
 	onPreDraw  func()
 	elements   map[string]element.Interface
 	layout     *Layout
-	selected   string
-	hasActive  bool
+	hovered    string
+	isActive   bool
 }
 
 func MakePage(title string, layout *Layout) *Page {
@@ -78,6 +85,10 @@ func (page *Page) Deselect() {
 	page.selectElement("")
 }
 
+func (page *Page) SetOnNavigateOutside(handler func(direction string)) {
+	page.onOverflow = handler
+}
+
 func (page *Page) SetPreDraw(handler func()) {
 	page.onPreDraw = handler
 }
@@ -88,7 +99,7 @@ func (page *Page) AddTo(pages *tview.Pages) {
 
 func (page *Page) Clear() {
 	page.Deselect()
-	page.hasActive = false
+	page.isActive = false
 	page.elements = map[string]element.Interface{}
 	page.Grid.Clear()
 }
@@ -101,22 +112,28 @@ func (page *Page) AddElement(ele element.Interface, position string) *Page {
 	return page
 }
 
+func (page *Page) DeleteElement(position string) *Page {
+	page.Grid.RemoveItem(page.elements[position])
+	page.elements[position] = nil
+	return page
+}
+
 func (page *Page) selectElement(element string) {
 	if element == "" {
-		if page.elements[page.selected] != nil {
-			page.elements[page.selected].SetBorderColor(tcell.ColorWhite)
-			page.elements[page.selected].OffHover()
+		if page.elements[page.hovered] != nil {
+			page.elements[page.hovered].SetBorderColor(tcell.ColorWhite)
+			page.elements[page.hovered].OffHover()
 		}
-		page.selected = ""
-	} else if page.elements[element] != nil && page.selected != element {
+		page.hovered = ""
+	} else if page.elements[element] != nil && page.hovered != element {
 		if page.elements[element].Hoverable() {
-			if page.elements[page.selected] != nil {
-				page.elements[page.selected].SetBorderColor(tcell.ColorWhite)
-				page.elements[page.selected].OffHover()
+			if page.elements[page.hovered] != nil {
+				page.elements[page.hovered].SetBorderColor(tcell.ColorWhite)
+				page.elements[page.hovered].OffHover()
 			}
-			page.selected = element
-			page.elements[page.selected].SetBorderColor(tcell.ColorBlue)
-			page.elements[page.selected].Hover()
+			page.hovered = element
+			page.elements[page.hovered].SetBorderColor(tcell.ColorBlue)
+			page.elements[page.hovered].Hover()
 		}
 	}
 }
@@ -128,18 +145,40 @@ func (page *Page) SelectElement(element string) {
 }
 
 func (page *Page) HoveredElement() string {
-	return page.selected
+	return page.hovered
 }
 
 func (page *Page) SelectedElement() string {
-	if page.hasActive {
-		return page.selected
+	if page.isActive {
+		return page.hovered
 	}
 	return ""
 }
 
-func (page *Page) navigate(direction string) bool {
-	ele := page.selected
+func (page *Page) NavigateUp() bool {
+	page.DeselectActiveElement()
+	return page.navigate("up", "")
+}
+
+func (page *Page) NavigateDown() bool {
+	page.DeselectActiveElement()
+	return page.navigate("down", "")
+}
+
+func (page *Page) NavigateLeft() bool {
+	page.DeselectActiveElement()
+	return page.navigate("left", "")
+}
+
+func (page *Page) NavigateRight() bool {
+	page.DeselectActiveElement()
+	return page.navigate("right", "")
+}
+
+func (page *Page) navigate(direction string, ele string) bool {
+	if ele == "" {
+		ele = page.hovered
+	}
 	for {
 		switch direction {
 		case "left":
@@ -160,25 +199,39 @@ func (page *Page) navigate(direction string) bool {
 			return false
 		}
 
-		if page.elements[ele] != nil && page.elements[ele].Hoverable() {
-			page.SelectElement(ele)
-			return true
+		if page.elements[ele] != nil {
+			if page.elements[ele].Hoverable() {
+				page.SelectElement(ele)
+				return true
+			} else {
+				if direction == "up" || direction == "down" {
+					if !page.navigate("left", ele) {
+						return page.navigate("right", ele)
+					}
+					return true
+				} else if direction == "left" || direction == "right" {
+					if !page.navigate("up", ele) {
+						return page.navigate("down", ele)
+					}
+					return true
+				}
+			}
 		}
 	}
 }
 
 func (page *Page) DeselectActiveElement() {
-	page.hasActive = false
-	page.elements[page.selected].Deselect()
+	page.isActive = false
+	page.elements[page.hovered].Deselect()
 }
 
 func (page *Page) HandleKeyEvent(key *tcell.EventKey, switchToPage func(*Page), focusHeader func(bool)) {
-	if page.selected != "" {
-		if page.hasActive {
-			page.elements[page.selected].HandleKeyEvent(key, page.DeselectActiveElement)
+	if page.hovered != "" {
+		if page.isActive {
+			page.elements[page.hovered].HandleKeyEvent(key, page.DeselectActiveElement)
 			switch key.Key() {
 			case tcell.KeyEscape:
-				if page.elements[page.selected].Escapable() {
+				if page.elements[page.hovered].Escapable() {
 					page.DeselectActiveElement()
 				}
 				break
@@ -186,36 +239,68 @@ func (page *Page) HandleKeyEvent(key *tcell.EventKey, switchToPage func(*Page), 
 				break
 			}
 		} else {
+			navigated := false
 			switch key.Key() {
 			case tcell.KeyEnter:
-				if page.elements[page.selected].Selectable() {
-					page.hasActive = true
-					page.elements[page.selected].Select()
+				if page.elements[page.hovered].Selectable() {
+					page.isActive = true
+					page.elements[page.hovered].Select()
 				}
 				break
 			case tcell.KeyLeft:
-				if !page.navigate("left") && page.elements[page.selected].BleedThrough() {
-					page.elements[page.selected].HandleKeyEvent(key, page.DeselectActiveElement)
+				if !page.navigate("left", "") {
+					if page.elements[page.hovered].BleedThrough() {
+						page.elements[page.hovered].HandleKeyEvent(key, page.DeselectActiveElement)
+					}
+					if page.onOverflow != nil {
+						page.onOverflow("left")
+					}
+				} else {
+					navigated = true
 				}
 				break
 			case tcell.KeyRight:
-				if !page.navigate("right") && page.elements[page.selected].BleedThrough() {
-					page.elements[page.selected].HandleKeyEvent(key, page.DeselectActiveElement)
+				if !page.navigate("right", "") {
+					if page.elements[page.hovered].BleedThrough() {
+						page.elements[page.hovered].HandleKeyEvent(key, page.DeselectActiveElement)
+					}
+					if page.onOverflow != nil {
+						page.onOverflow("right")
+					}
+				} else {
+					navigated = true
 				}
 				break
 			case tcell.KeyUp:
-				if !page.navigate("up") {
-					if page.elements[page.selected].BleedThrough() {
-						page.elements[page.selected].HandleKeyEvent(key, page.DeselectActiveElement)
+				if !page.navigate("up", "") {
+					if page.elements[page.hovered].BleedThrough() {
+						page.elements[page.hovered].HandleKeyEvent(key, page.DeselectActiveElement)
+					}
+					if page.onOverflow != nil {
+						page.onOverflow("up")
 					}
 					focusHeader(true)
+				} else {
+					navigated = true
 				}
 				break
 			case tcell.KeyDown:
-				if !page.navigate("down") && page.elements[page.selected].BleedThrough() {
-					page.elements[page.selected].HandleKeyEvent(key, page.DeselectActiveElement)
+				if !page.navigate("down", "") {
+					if page.elements[page.hovered].BleedThrough() {
+						page.elements[page.hovered].HandleKeyEvent(key, page.DeselectActiveElement)
+					}
+					if page.onOverflow != nil {
+						page.onOverflow("down")
+					}
+				} else {
+					navigated = true
 				}
 				break
+			}
+
+			if navigated && page.elements[page.hovered] != nil && page.elements[page.hovered].Inlay() {
+				page.isActive = true
+				page.elements[page.hovered].Select()
 			}
 		}
 	}

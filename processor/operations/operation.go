@@ -11,6 +11,7 @@ const (
 	LoadSpectrumMethod
 	MakeSliceMethod
 	ExportToCsvMethod
+	CubicSplineMethod
 )
 
 type Interface interface {

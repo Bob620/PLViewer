@@ -2,8 +2,10 @@ package viewer
 
 import (
 	"PLViewer/backend"
+	"PLViewer/sxes"
 	"PLViewer/ui/element"
 	"PLViewer/ui/input"
+	"PLViewer/ui/interop"
 	"PLViewer/ui/linegraph"
 	"PLViewer/ui/page"
 	"PLViewer/ui/tree"
@@ -12,6 +14,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 )
 
 type Viewer struct {
@@ -28,7 +31,7 @@ func getDir(uri string) []os.FileInfo {
 	return files
 }
 
-func MakeViewerPage(application *tview.Application, bg *backend.Backend) *Viewer {
+func MakeViewerPage(application *tview.Application, bg *backend.Backend, interopData *interop.InteropData) *Viewer {
 	viewer := Viewer{
 		Page: page.MakePage("Viewer", page.MakeLayout([][]string{
 			{"input", "metadata"},
@@ -48,9 +51,11 @@ func MakeViewerPage(application *tview.Application, bg *backend.Backend) *Viewer
 
 	treeElement := tree.MakeTree()
 	treeElement.SetBorders(true)
+	treeElement.SetTitle(" PLZip Data Tree ")
 
 	graphElement := linegraph.MakeLineGraph()
 	graphElement.SetBorders(true).SetSelectable(false).SetHoverable(false)
+	graphElement.SetTitle(" QLW Graph ")
 
 	inputBox := input.MakeInput(application)
 	inputElement.GetFlex().AddItem(inputBox, 0, 1, false)
@@ -69,6 +74,7 @@ func MakeViewerPage(application *tview.Application, bg *backend.Backend) *Viewer
 			return
 		}
 
+		interopData.SetString("viewerUri", uri)
 		bg.Load(uri)
 		projects, _ := bg.GetProjects()
 		for _, project := range projects {
@@ -98,20 +104,34 @@ func MakeViewerPage(application *tview.Application, bg *backend.Backend) *Viewer
 						// Initialize Metadata view
 						metadataPages.SetAsAnalysis(project, analysis)
 
-						// Set up downstream nodes
-						for _, positionUuid := range analysis.Positions {
-							position, _ := bg.GetPosition(positionUuid.Uuid)
-							text := position.Comment
-							if text == "" {
-								text = position.Uuid
-							}
-							node.AddNode(text, false, func(nodeId tree.Id, node *tree.Node) {
-								line, _ := bg.GetLine(position.Uuid, position.Types[0])
-								graphElement.SetLine(line)
+						// Set up downstream nodes asynchronously
+						var wg sync.WaitGroup
+						positions := make([]*sxes.Position, len(analysis.Positions))
 
-								// Initialize Metadata view
-								metadataPages.SetAsPosition(project, analysis, position)
-							})
+						for i, positionUuid := range analysis.Positions {
+							wg.Add(1)
+							go func(i int, uuid string) {
+								position, _ := bg.GetPosition(uuid)
+								positions[i] = position
+								wg.Done()
+							}(i, positionUuid.Uuid)
+						}
+
+						wg.Wait()
+						for _, position := range positions {
+							func(position *sxes.Position) {
+								text := position.Comment
+								if text == "" {
+									text = position.Uuid
+								}
+								node.AddNode(text, false, func(nodeId tree.Id, node *tree.Node) {
+									line, _ := bg.GetLine(position.Uuid, position.Types[0])
+									graphElement.SetLine(line)
+
+									// Initialize Metadata view
+									metadataPages.SetAsPosition(project, analysis, position)
+								})
+							}(position)
 						}
 					})
 				}
@@ -128,9 +148,12 @@ func MakeViewerPage(application *tview.Application, bg *backend.Backend) *Viewer
 		files := getDir(dir)
 
 		for _, file := range files {
-			if file.IsDir() || strings.HasSuffix(file.Name(), ".plzip") || strings.HasSuffix(file.Name(), ".pl7z") {
-				if wanted == "" || strings.Contains(strings.ToLower(file.Name()), wanted) {
-					entries = append(entries, file.Name())
+			name := strings.ToLower(file.Name())
+			if file.IsDir() || strings.HasSuffix(name, ".plzip") || strings.HasSuffix(name, ".pl7z") {
+				if wanted == "" || strings.Contains(strings.ToLower(name), wanted) {
+					if strings.ToLower(name) != wanted {
+						entries = append(entries, file.Name())
+					}
 				}
 			}
 		}

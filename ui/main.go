@@ -4,6 +4,7 @@ import (
 	"PLViewer/backend"
 	"PLViewer/ui/creator"
 	Header "PLViewer/ui/header"
+	"PLViewer/ui/interop"
 	"PLViewer/ui/page"
 	"PLViewer/ui/processor"
 	"PLViewer/ui/viewer"
@@ -12,6 +13,7 @@ import (
 )
 
 var app = tview.NewApplication()
+var interopData *interop.InteropData
 var pages *tview.Pages
 
 var header *Header.Header
@@ -23,9 +25,11 @@ var PageProcessor *processor.Processor
 var activePage *page.Page
 
 func Initialize(bg *backend.Backend) {
-	PageViewer = viewer.MakeViewerPage(app, bg)
-	PageCreator = creator.MakeCreatorPage(app)
-	PageProcessor = processor.MakeProcessorPage(app, bg)
+	interopData = interop.MakeInteropData()
+
+	PageViewer = viewer.MakeViewerPage(app, bg, interopData)
+	PageCreator = creator.MakeCreatorPage(app, bg, interopData)
+	PageProcessor = processor.MakeProcessorPage(app, bg, interopData)
 	activePage = PageViewer.Page
 
 	pages = tview.NewPages()

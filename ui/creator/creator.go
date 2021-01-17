@@ -5,6 +5,7 @@ import (
 	"PLViewer/ui/element"
 	"PLViewer/ui/input"
 	"PLViewer/ui/inputoptions"
+	"PLViewer/ui/interop"
 	"PLViewer/ui/page"
 	"PLViewer/ui/radio"
 	"github.com/gdamore/tcell/v2"
@@ -20,15 +21,15 @@ type Creator struct {
 	*page.Page
 }
 
-func MakeCreatorPage(application *tview.Application) *Creator {
+func MakeCreatorPage(application *tview.Application, bg *backend.Backend, interopData *interop.InteropData) *Creator {
 	creator := Creator{
 		Page: page.MakePage("Creator", page.MakeLayout([][]string{
-			{"input", "input", "side"},
-			{"options", "options", "side"},
-			{"options", "options", "side"},
-			{"log", "log", "log"},
-			{"log", "log", "log"},
-			{"log", "log", "log"},
+			{"input", "input", "input", "log", "log"},
+			{"input", "input", "input", "log", "log"},
+			{"options", "options", "options", "log", "log"},
+			{"options", "options", "options", "log", "log"},
+			{"options", "options", "options", "log", "log"},
+			{"options", "options", "options", "log", "log"},
 		})),
 	}
 	creator.SetOnSelect(func() {
@@ -41,13 +42,30 @@ func MakeCreatorPage(application *tview.Application) *Creator {
 		{"selector", "map", "recover"},
 		{"selector", "line", "debug"},
 	}), backend.MakeCreatorOptions())
-	optionsElement.SetBorder(true)
+	optionsElement.SetInlay(true).SetEscapable(false).SetBorders(false)
+	optionsElement.Page.SetOnNavigateOutside(func(direction string) {
+		switch direction {
+		case "right":
+			creator.NavigateRight()
+			break
+		case "up":
+			creator.NavigateUp()
+			break
+		}
+	})
 	optionsElement.SetOnSelect(func() {
 		optionsElement.Page.SelectElement("xes")
 	})
 
 	radioSelector := radio.MakeRadioSelector("Output Format:", []*radio.Option{{"Csv", "csv"}, {"Jeol", "jeol"}, {"Json", "json"}, {"PlZip ", "plzip"}})
-	radioSelector.SetBleedThrough(true)
+	radioSelector.Page.SetOnNavigateOutside(func(direction string) {
+		switch direction {
+		case "right":
+			optionsElement.Page.NavigateRight()
+			break
+		}
+	})
+
 	optionsElement.Page.AddElement(radioSelector, "selector")
 	radioSelector.SelectOption("plzip")
 
@@ -65,12 +83,12 @@ func MakeCreatorPage(application *tview.Application) *Creator {
 
 	inputField := input.MakeInput(application)
 	inputElement := element.MakeElement()
-	sideElement := element.MakeElement().SetBorders(true).SetHoverable(false).SetSelectable(false)
 	logElement := element.MakeElement().SetBorders(true)
 
 	inputElement.SetBorders(true)
 	loggingSpace := tview.NewTextView()
 
+	logElement.GetFlex().SetTitle(" Log ")
 	logElement.GetFlex().
 		AddItem(loggingSpace, 0, 1, false)
 	logElement.SetOnKeyEvent(func(key *tcell.EventKey, deSelector func()) {
@@ -92,14 +110,15 @@ func MakeCreatorPage(application *tview.Application) *Creator {
 
 	inputField.SetOnSubmit(func(uri string) {
 		output := make(chan string)
-		lines := []string{}
-		updated := false
-		var lock sync.RWMutex
 
+		interopData.SetString("creatorUri", uri)
 		go func() {
+			lines := []string{}
+			updated := false
+			var lock sync.RWMutex
 			for {
 				line := <-output
-				if line == "\b" {
+				if strings.Contains(line, "\b") {
 					break
 				} else {
 					lock.Lock()
@@ -133,8 +152,11 @@ func MakeCreatorPage(application *tview.Application) *Creator {
 		files := getDir(dir)
 
 		for _, file := range files {
-			if file.IsDir() && (wanted == "" || strings.Contains(strings.ToLower(file.Name()), wanted)) {
-				entries = append(entries, file.Name())
+			name := strings.ToLower(file.Name())
+			if file.IsDir() && (wanted == "" || strings.Contains(name, wanted)) {
+				if strings.ToLower(name) != wanted {
+					entries = append(entries, file.Name())
+				}
 			}
 		}
 		return entries
@@ -143,7 +165,6 @@ func MakeCreatorPage(application *tview.Application) *Creator {
 	creator.
 		AddElement(inputElement, "input").
 		AddElement(optionsElement, "options").
-		AddElement(sideElement, "side").
 		AddElement(logElement, "log")
 
 	return &creator

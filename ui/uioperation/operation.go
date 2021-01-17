@@ -16,7 +16,7 @@ type Operation struct {
 	label       string
 }
 
-func MakeOperation(label string, bg *backend.Backend, layout *page.Layout, data operations.Interface) *Operation {
+func MakeOperation(bg *backend.Backend, layout *page.Layout, data operations.Interface, deleteFunc func()) *Operation {
 	operation := &Operation{
 		Page:        page.MakePage("", layout),
 		Data:        data,
@@ -25,7 +25,14 @@ func MakeOperation(label string, bg *backend.Backend, layout *page.Layout, data 
 		label:       "",
 	}
 
-	operation.SetLabel(label)
+	deleteElement := element.MakeElement()
+	deleteElement.SetBorders(true)
+	deleteElement.SetTitle(" Delete ")
+	deleteElement.SetOnSelect(func() {
+		deleteFunc()
+	})
+
+	operation.AddElement(deleteElement, "delete")
 	return operation
 }
 

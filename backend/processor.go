@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"bytes"
 	"log"
 	"os/exec"
 	"sync"
@@ -29,7 +30,7 @@ func RunProcessor(output chan<- string, command []string) {
 		for {
 			buf := make([]byte, 100)
 			_, err := stdout.Read(buf)
-			line += string(buf)
+			line += string(bytes.Trim(buf, "\x00"))
 
 			if line != "" {
 				for i, rawChar := range line {
@@ -46,7 +47,7 @@ func RunProcessor(output chan<- string, command []string) {
 			}
 		}
 
-		for line != "" {
+		for len(line) > 0 {
 			for i, rawChar := range line {
 				char := string(rawChar)
 				if char == "\n" {

@@ -54,6 +54,7 @@ func (inputOptions *InputOptions) AddCheckbox(position string, label string, opt
 	})
 
 	ele.AddItem(checkbox, 0, 1, false)
+	ele.SetBorders(true)
 
 	inputOptions.Page.AddElement(ele, position)
 }

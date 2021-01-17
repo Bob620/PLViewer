@@ -5,14 +5,17 @@ import (
 	"PLViewer/processor/operations"
 	"PLViewer/ui/element"
 	"PLViewer/ui/input"
+	"PLViewer/ui/interop"
 	"PLViewer/ui/page"
 	"fmt"
 	"github.com/rivo/tview"
+	"path"
+	"strings"
 )
 
-func MakeCsv(app *tview.Application, bg *backend.Backend, deleteFunc func()) *Operation {
+func MakeCsv(app *tview.Application, bg *backend.Backend, interopData *interop.InteropData, deleteFunc func()) *Operation {
 	dataStore := operations.MakeCsv()
-	operation := MakeOperation("Export as Csv", bg, page.MakeLayout([][]string{
+	operation := MakeOperation(bg, page.MakeLayout([][]string{
 		{"name", "name", "name"},
 		{"name", "name", "name"},
 		{"file", "file", "file"},
@@ -21,7 +24,7 @@ func MakeCsv(app *tview.Application, bg *backend.Backend, deleteFunc func()) *Op
 		{"", "", ""},
 		{"", "", ""},
 		{"", "", "delete"},
-	}), dataStore)
+	}), dataStore, deleteFunc)
 
 	operation.SetPreDraw(func() {
 		newLabel := fmt.Sprintf("Export as Csv - %s as %s", dataStore.GetDataNames(), dataStore.GetUri())
@@ -35,7 +38,7 @@ func MakeCsv(app *tview.Application, bg *backend.Backend, deleteFunc func()) *Op
 	nameElement := element.MakeElement()
 	nameElement.SetDirection(tview.FlexRow)
 	nameElement.SetBorders(true)
-	nameElement.AddItem(tview.NewTextView().SetText("Data Names (separated by ,):").SetTextAlign(tview.AlignCenter), 0, 1, false)
+	nameElement.SetTitle(" Data Names (separated by ,) ")
 	nameElement.AddItem(nameInput, 0, 1, false)
 	nameElement.SetOnSelect(func() {
 		nameInput.Activate(true)
@@ -50,7 +53,7 @@ func MakeCsv(app *tview.Application, bg *backend.Backend, deleteFunc func()) *Op
 	fileElement := element.MakeElement()
 	fileElement.SetDirection(tview.FlexRow)
 	fileElement.SetBorders(true)
-	fileElement.AddItem(tview.NewTextView().SetText("Output File:").SetTextAlign(tview.AlignCenter), 0, 1, false)
+	fileElement.SetTitle(" Output File ")
 	fileElement.AddItem(fileInput, 0, 1, false)
 	fileElement.SetOnSelect(func() {
 		fileInput.Activate(true)
@@ -60,18 +63,45 @@ func MakeCsv(app *tview.Application, bg *backend.Backend, deleteFunc func()) *Op
 	})
 	fileElement.SetOnKeyEvent(fileInput.HandleEvents)
 	fileInput.SetOnSubmit(dataStore.SetUri)
+	fileInput.SetAutocompleteSelectionFunc(func(entry string) string {
+		if strings.HasPrefix(entry[1:], ":") {
+			return entry
+		}
 
-	deleteElement := element.MakeElement()
-	deleteElement.SetBorders(true)
-	deleteElement.AddItem(tview.NewTextView().SetText("Delete").SetTextAlign(tview.AlignCenter), 0, 1, false)
-	deleteElement.SetOnSelect(func() {
-		deleteFunc()
+		dir, _ := path.Split(fileInput.GetText())
+		return path.Join(dir, entry)
+	}).SetAutocompleteFunc(func(currentText string) (entries []string) {
+		currentText = strings.ReplaceAll(strings.TrimSpace(strings.ToLower(currentText)), "\\", "/")
+
+		viewerUri := interopData.GetString("viewerUri")
+		creatorUri := interopData.GetString("creatorUri")
+
+		testUri := func(uri string) {
+			cleanUri := strings.ReplaceAll(strings.TrimSpace(strings.ToLower(uri)), "\\", "/")
+			dir, _ := path.Split(uri)
+			cleanDir, _ := path.Split(cleanUri)
+
+			if uri != "" && !strings.HasPrefix(currentText, cleanDir) {
+				entries = append(entries, dir)
+			}
+		}
+
+		testUri(viewerUri)
+		testUri(creatorUri)
+
+		uris := interopData.GetStringArray("addZipUris")
+		for _, uri := range uris.GetAll() {
+			if uri != viewerUri && uri != creatorUri {
+				entries = append(entries, uri)
+			}
+		}
+
+		return entries
 	})
 
 	operation.
 		AddElement(nameElement, "name").
-		AddElement(fileElement, "file").
-		AddElement(deleteElement, "delete")
+		AddElement(fileElement, "file")
 
 	operation.SetOnSelect(func() {
 		operation.SelectElement("name")
